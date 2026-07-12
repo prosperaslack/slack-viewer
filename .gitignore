@@ -8,3 +8,5 @@ dist
 data/
 *.zip
 supabase/seed*.sql
+.deploy-payload.json
+.env.production
