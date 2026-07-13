@@ -326,6 +326,9 @@ export default function App() {
             }}
             onFocus={() => setView('search')}
           />
+          <button type="button" className="top-signout-btn" onClick={signOut}>
+            Sign out
+          </button>
         </div>
 
         {view === 'home' && (

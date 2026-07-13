@@ -7,6 +7,28 @@ export default function LoginPanel({ onSignedIn }) {
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
 
+  const onSlackSignIn = async () => {
+    setStatus('loading')
+    setMessage('')
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'slack_oidc',
+        options: {
+          redirectTo: window.location.origin,
+          scopes: 'openid profile email',
+        },
+      })
+      if (error) {
+        setStatus('error')
+        setMessage(error.message || 'Slack sign-in failed')
+      }
+      // Browser redirects to Slack on success
+    } catch (err) {
+      setStatus('error')
+      setMessage(err instanceof Error ? err.message : 'Slack sign-in failed')
+    }
+  }
+
   const onSubmit = async (event) => {
     event.preventDefault()
     const cleaned = email.trim().toLowerCase()
@@ -69,8 +91,21 @@ export default function LoginPanel({ onSignedIn }) {
         <p className="eyebrow">Prospera</p>
         <h1>Slack archive</h1>
         <p className="login-copy">
-          Enter your email and the community password. Access is limited to approved members.
+          Sign in with Slack, or use your email and the community password.
         </p>
+
+        <button
+          type="button"
+          className="slack-login-btn"
+          onClick={onSlackSignIn}
+          disabled={status === 'loading'}
+        >
+          Continue with Slack
+        </button>
+
+        <div className="login-divider" role="presentation">
+          <span>or</span>
+        </div>
 
         <form className="login-form" onSubmit={onSubmit}>
           <label htmlFor="email">Email</label>
@@ -98,7 +133,7 @@ export default function LoginPanel({ onSignedIn }) {
           />
 
           <button type="submit" disabled={status === 'loading'}>
-            {status === 'loading' ? 'Signing in…' : 'Sign in'}
+            {status === 'loading' ? 'Signing in…' : 'Sign in with email'}
           </button>
         </form>
 
