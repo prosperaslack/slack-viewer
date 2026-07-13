@@ -91,22 +91,8 @@ button, input { font: inherit; }
 .workspace-title strong { font-size: 0.92rem; }
 .workspace-title small { font-size: 0.72rem; color: var(--sidebar-muted); }
 
-.sidebar-search { padding: 0 12px 8px; }
-
-.sidebar-search input {
-  width: 100%;
-  padding: 7px 10px;
-  border-radius: 6px;
-  border: none;
-  background: var(--sidebar-dark);
-  color: #fff;
-  font-size: 0.82rem;
-}
-
-.sidebar-search input::placeholder { color: var(--sidebar-muted); }
-
 .sidebar-nav {
-  padding: 0 8px;
+  padding: 0 8px 8px;
   display: grid;
   gap: 2px;
 }
@@ -204,11 +190,37 @@ button, input { font: inherit; }
   background: var(--main);
 }
 
+.top-search-bar {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.top-search-input {
+  width: 100%;
+  max-width: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--main);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.top-search-input:focus {
+  outline: none;
+  border-color: var(--link);
+}
+
+.top-search-input::placeholder { color: var(--text-muted); }
+
 /* ── Home (PY-Slack style) ── */
 .home-panel {
   overflow: auto;
+  flex: 1;
   padding: 28px 32px 48px;
-  max-width: 960px;
+  width: 100%;
 }
 
 .home-hero { margin-bottom: 28px; }
@@ -679,7 +691,8 @@ button, input { font: inherit; }
 /* ── Search ── */
 .search-panel {
   overflow: auto;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .panel-header {

@@ -19,7 +19,6 @@ export default function App() {
   const [error, setError] = useState('')
   const [view, setView] = useState('home')
   const [activeConversationId, setActiveConversationId] = useState(null)
-  const [sidebarQuery, setSidebarQuery] = useState('')
   const [channelSearch, setChannelSearch] = useState('')
   const [globalSearch, setGlobalSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -308,8 +307,6 @@ export default function App() {
         workspace={workspace}
         activeId={activeConversationId}
         view={view}
-        query={sidebarQuery}
-        onQueryChange={setSidebarQuery}
         onSelectConversation={openChannel}
         onSelectView={setView}
         userEmail={session.user.email}
@@ -317,6 +314,20 @@ export default function App() {
       />
 
       <main className="main">
+        <div className="top-search-bar">
+          <input
+            type="search"
+            className="top-search-input"
+            placeholder="Search all messages…"
+            value={globalSearch}
+            onChange={(e) => {
+              setGlobalSearch(e.target.value)
+              setView('search')
+            }}
+            onFocus={() => setView('search')}
+          />
+        </div>
+
         {view === 'home' && (
           <HomePanel workspace={workspace} onOpenChannel={openChannel} />
         )}
@@ -325,7 +336,6 @@ export default function App() {
           <SearchPanel
             results={searchResults}
             query={globalSearch}
-            onQueryChange={setGlobalSearch}
             userMap={workspace.userMap}
             onOpenMessage={openSearchResult}
             loading={searchLoading}

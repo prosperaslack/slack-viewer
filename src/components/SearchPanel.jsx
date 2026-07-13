@@ -1,22 +1,10 @@
 import { formatMrkdwn, formatTimestamp } from '../lib/slackExport'
 
-export default function SearchPanel({ results, query, onQueryChange, userMap, onOpenMessage, loading }) {
+export default function SearchPanel({ results, query, userMap, onOpenMessage, loading }) {
   return (
     <div className="search-panel">
-      <header className="panel-header">
-        <h2>Search messages</h2>
-        <input
-          type="search"
-          className="search-input-lg"
-          placeholder="Search across all channels…"
-          value={query}
-          onChange={e => onQueryChange(e.target.value)}
-          autoFocus
-        />
-      </header>
-
       {!query.trim() ? (
-        <p className="search-hint">Type to search message text and author names.</p>
+        <p className="search-hint">Type above to search message text and author names across all channels.</p>
       ) : loading ? (
         <p className="search-hint">Searching…</p>
       ) : results.length === 0 ? (
