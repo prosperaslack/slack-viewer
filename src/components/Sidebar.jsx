@@ -21,6 +21,11 @@ export default function Sidebar({
             <small>Slack archive</small>
           </span>
         </button>
+        {onSignOut && (
+          <button type="button" className="sidebar-signout" onClick={onSignOut}>
+            Sign out
+          </button>
+        )}
       </div>
 
       <nav className="sidebar-nav">
@@ -63,11 +68,6 @@ export default function Sidebar({
           {stats.messageCount} messages · {formatDateRange(stats.dateRange)}
         </p>
         {userEmail && <p className="footer-email">{userEmail}</p>}
-        {onSignOut && (
-          <button type="button" className="signout-btn" onClick={onSignOut}>
-            Sign out
-          </button>
-        )}
       </div>
     </aside>
   )

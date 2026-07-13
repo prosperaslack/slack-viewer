@@ -35,6 +35,11 @@ button, input { font: inherit; }
   overflow: hidden;
 }
 
+.app-shell > * {
+  min-height: 0;
+  min-width: 0;
+}
+
 .boot {
   display: grid;
   place-items: center;
@@ -50,10 +55,35 @@ button, input { font: inherit; }
   color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   border-right: 1px solid var(--sidebar-border);
 }
 
-.workspace-header { padding: 12px 12px 8px; }
+.workspace-header {
+  flex-shrink: 0;
+  padding: 12px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-signout {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  background: var(--sidebar-dark);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sidebar-signout:hover {
+  background: #2a0a2b;
+}
 
 .workspace-btn {
   display: flex;
@@ -92,6 +122,7 @@ button, input { font: inherit; }
 .workspace-title small { font-size: 0.72rem; color: var(--sidebar-muted); }
 
 .sidebar-nav {
+  flex-shrink: 0;
   padding: 0 8px 8px;
   display: grid;
   gap: 2px;
@@ -118,9 +149,12 @@ button, input { font: inherit; }
 .nav-icon { opacity: 0.85; width: 18px; text-align: center; }
 
 .sidebar-section {
-  flex: 1;
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 10px 8px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .section-label {
