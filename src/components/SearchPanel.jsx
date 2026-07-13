@@ -25,7 +25,7 @@ export default function SearchPanel({ results, query, onQueryChange, userMap, on
         <ul className="search-results">
           {results.map(msg => (
             <li key={`${msg.channelId}-${msg.ts}`}>
-              <button type="button" className="search-result" onClick={() => onOpenMessage(msg.channelId)}>
+              <button type="button" className="search-result" onClick={() => onOpenMessage(msg)}>
                 <div className="search-result-meta">
                   <span className="search-channel">#{msg.channelLabel}</span>
                   <span>{msg.displayName}</span>

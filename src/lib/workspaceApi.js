@@ -1,8 +1,27 @@
 import { supabase } from './supabase'
 
+const CHANNEL_PAGE_SIZE = 60
+
+function mapMessage(m) {
+  return {
+    type: 'message',
+    ts: m.ts,
+    thread_ts: m.thread_ts || undefined,
+    user: m.user_id || undefined,
+    text: m.text || '',
+    subtype: m.subtype || undefined,
+    reply_count: m.reply_count || 0,
+    reactions: m.reactions || [],
+    channel: m.channel_id,
+    channelName: m.channel_name,
+    displayName: m.display_name,
+    avatar: m.avatar || '',
+    timestamp: m.msg_ts,
+  }
+}
+
 /**
- * Load workspace metadata from Supabase (RLS-gated by allowlist).
- * Messages are loaded per-channel via loadChannelMessages().
+ * Load workspace metadata only (no message bodies).
  */
 export async function loadWorkspaceFromSupabase() {
   const { data: allowed, error: allowErr } = await supabase
@@ -17,22 +36,16 @@ export async function loadWorkspaceFromSupabase() {
     throw err
   }
 
-  const [usersRes, channelsRes, countsRes] = await Promise.all([
+  const [usersRes, channelsRes, statsRes] = await Promise.all([
     supabase.from('slack_users').select('id,name,real_name,display_name,email,avatar_72,is_admin,is_bot,deleted'),
     supabase.from('slack_channels').select('id,name,kind,topic,purpose,member_count,is_general'),
-    supabase.rpc('channel_message_counts'),
+    supabase.rpc('archive_stats'),
   ])
 
   if (usersRes.error) throw new Error(usersRes.error.message)
   if (channelsRes.error) throw new Error(channelsRes.error.message)
 
-  // Fallback if RPC missing: empty counts
-  const countMap = new Map()
-  if (!countsRes.error && countsRes.data) {
-    for (const row of countsRes.data) {
-      countMap.set(row.channel_id, Number(row.message_count) || 0)
-    }
-  }
+  const statsRow = !statsRes.error && statsRes.data?.[0] ? statsRes.data[0] : null
 
   const users = (usersRes.data || []).map(u => ({
     id: u.id,
@@ -51,29 +64,26 @@ export async function loadWorkspaceFromSupabase() {
 
   const userMap = new Map(users.map(u => [u.id, u]))
 
-  const conversations = (channelsRes.data || []).map(ch => {
-    const messageCount = countMap.get(ch.id) || 0
-    return {
-      id: ch.id,
-      name: ch.name,
-      kind: ch.kind || (ch.is_general ? 'general' : 'channel'),
-      topic: ch.topic || '',
-      purpose: ch.purpose || '',
-      messages: [],
-      messagesLoaded: false,
-      messageCount,
-      memberCount: ch.member_count || 0,
-      dateRange: null,
-    }
-  })
+  const conversations = (channelsRes.data || []).map(ch => ({
+    id: ch.id,
+    name: ch.name,
+    kind: ch.kind || (ch.is_general ? 'general' : 'channel'),
+    topic: ch.topic || '',
+    purpose: ch.purpose || '',
+    messages: [],
+    messagesLoaded: false,
+    messageCount: null,
+    memberCount: ch.member_count || 0,
+    dateRange: null,
+  }))
 
   conversations.sort((a, b) => {
     if (a.kind === 'general') return -1
     if (b.kind === 'general') return 1
-    return b.messageCount - a.messageCount || a.name.localeCompare(b.name)
+    return b.memberCount - a.memberCount || a.name.localeCompare(b.name)
   })
 
-  const totalMessages = conversations.reduce((n, c) => n + c.messageCount, 0)
+  const messageCount = Number(statsRow?.message_count) || 0
 
   return {
     users,
@@ -84,55 +94,34 @@ export async function loadWorkspaceFromSupabase() {
     dms: [],
     mpims: [],
     stats: {
-      userCount: users.length,
-      channelCount: conversations.length,
-      messageCount: totalMessages,
+      userCount: Number(statsRow?.user_count) || users.length,
+      channelCount: Number(statsRow?.channel_count) || conversations.length,
+      messageCount,
       threadCount: 0,
-      hasMessages: totalMessages > 0,
+      hasMessages: messageCount > 0,
       dateRange: null,
     },
   }
 }
 
 /**
- * Load all messages for one channel via security-definer RPC (avoids RLS timeouts).
+ * Load only the latest 60 messages for a channel.
+ * Pass aroundTs (from search) to load 60 messages around that point instead.
  */
-export async function loadChannelMessages(channelId) {
-  const pageSize = 500
-  let offset = 0
-  const rows = []
+export async function loadChannelMessages(channelId, { aroundTs } = {}) {
+  const { data, error } = await supabase.rpc('get_channel_messages', {
+    p_channel_id: channelId,
+    p_limit: CHANNEL_PAGE_SIZE,
+    p_around_ts: aroundTs ?? null,
+  })
 
-  for (;;) {
-    const { data, error } = await supabase.rpc('get_channel_messages', {
-      p_channel_id: channelId,
-      p_offset: offset,
-      p_limit: pageSize,
-    })
-
-    if (error) throw new Error(error.message)
-    const batch = data || []
-    rows.push(...batch)
-    if (batch.length < pageSize) break
-    offset += pageSize
-  }
-
-  return rows.map(m => ({
-    type: 'message',
-    ts: m.ts,
-    thread_ts: m.thread_ts || undefined,
-    user: m.user_id || undefined,
-    text: m.text || '',
-    subtype: m.subtype || undefined,
-    reply_count: m.reply_count || 0,
-    reactions: m.reactions || [],
-    channel: m.channel_id,
-    channelName: m.channel_name,
-    displayName: m.display_name,
-    avatar: m.avatar || '',
-    timestamp: m.msg_ts,
-  }))
+  if (error) throw new Error(error.message)
+  return (data || []).map(mapMessage)
 }
 
+/**
+ * Full-text search across the archive (server-side, not limited to loaded messages).
+ */
 export async function searchMessages(query) {
   const q = query.trim()
   if (!q) return []

@@ -102,21 +102,30 @@ export default function App() {
     )
   }, [activeConversation, channelSearch])
 
-  const openChannel = useCallback(async (id) => {
+  const openChannel = useCallback(async (id, options = {}) => {
+    const aroundTs = options.aroundTs ?? null
     setActiveConversationId(id)
     setView('channel')
     setChannelSearch('')
-    setActiveThreadTs(null)
+    setActiveThreadTs(options.threadTs || null)
 
     setWorkspace(prev => {
       if (!prev) return prev
-      const conv = prev.conversations.find(c => c.id === id)
-      if (!conv || conv.messagesLoaded) return prev
-      return prev
+      // Force reload when jumping from search (aroundTs) or first open
+      if (aroundTs == null) {
+        const conv = prev.conversations.find(c => c.id === id)
+        if (conv?.messagesLoaded) return prev
+      }
+      return {
+        ...prev,
+        conversations: prev.conversations.map(c =>
+          c.id === id ? { ...c, messagesLoaded: false, messages: [] } : c,
+        ),
+      }
     })
 
     try {
-      const messages = await loadChannelMessages(id)
+      const messages = await loadChannelMessages(id, { aroundTs })
       setWorkspace(prev => {
         if (!prev) return prev
         const conversations = prev.conversations.map(c => {
@@ -139,6 +148,13 @@ export default function App() {
       setError(err instanceof Error ? err.message : 'Failed to load channel')
     }
   }, [])
+
+  const openSearchResult = useCallback((msg) => {
+    openChannel(msg.channelId, {
+      aroundTs: msg.timestamp,
+      threadTs: msg.thread_ts && msg.thread_ts !== msg.ts ? msg.thread_ts : null,
+    })
+  }, [openChannel])
 
   const activeThreadParent = useMemo(() => {
     if (!activeThreadTs || !activeConversation) return null
@@ -215,7 +231,7 @@ export default function App() {
             query={globalSearch}
             onQueryChange={setGlobalSearch}
             userMap={workspace.userMap}
-            onOpenMessage={openChannel}
+            onOpenMessage={openSearchResult}
             loading={searchLoading}
           />
         )}
