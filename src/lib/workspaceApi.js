@@ -21,33 +21,26 @@ function mapMessage(m) {
 }
 
 /**
- * Load workspace metadata only (no message bodies).
+ * Load workspace metadata via one security-definer RPC (avoids RLS timeouts).
  */
 export async function loadWorkspaceFromSupabase() {
-  const { data: allowed, error: allowErr } = await supabase
-    .from('allowed_emails')
-    .select('email')
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('load_workspace_bootstrap')
 
-  if (allowErr) throw new Error(allowErr.message)
-  if (!allowed) {
-    const err = new Error('Your email is not on the access list')
-    err.code = 'FORBIDDEN'
-    throw err
+  if (error) {
+    if (/FORBIDDEN|42501|not on the access|allowlist/i.test(error.message)) {
+      const err = new Error('Your email is not on the access list')
+      err.code = 'FORBIDDEN'
+      throw err
+    }
+    throw new Error(error.message)
   }
 
-  const [usersRes, channelsRes, statsRes] = await Promise.all([
-    supabase.from('slack_users').select('id,name,real_name,display_name,email,avatar_72,is_admin,is_bot,deleted'),
-    supabase.from('slack_channels').select('id,name,kind,topic,purpose,member_count,is_general'),
-    supabase.rpc('archive_stats'),
-  ])
+  const payload = data || {}
+  const usersRaw = payload.users || []
+  const channelsRaw = payload.channels || []
+  const statsRaw = payload.stats || {}
 
-  if (usersRes.error) throw new Error(usersRes.error.message)
-  if (channelsRes.error) throw new Error(channelsRes.error.message)
-
-  const statsRow = !statsRes.error && statsRes.data?.[0] ? statsRes.data[0] : null
-
-  const users = (usersRes.data || []).map(u => ({
+  const users = usersRaw.map(u => ({
     id: u.id,
     name: u.name,
     real_name: u.real_name,
@@ -64,7 +57,7 @@ export async function loadWorkspaceFromSupabase() {
 
   const userMap = new Map(users.map(u => [u.id, u]))
 
-  const conversations = (channelsRes.data || []).map(ch => ({
+  const conversations = channelsRaw.map(ch => ({
     id: ch.id,
     name: ch.name,
     kind: ch.kind || (ch.is_general ? 'general' : 'channel'),
@@ -83,7 +76,7 @@ export async function loadWorkspaceFromSupabase() {
     return b.memberCount - a.memberCount || a.name.localeCompare(b.name)
   })
 
-  const messageCount = Number(statsRow?.message_count) || 0
+  const messageCount = Number(statsRaw.message_count) || 0
 
   return {
     users,
@@ -94,8 +87,8 @@ export async function loadWorkspaceFromSupabase() {
     dms: [],
     mpims: [],
     stats: {
-      userCount: Number(statsRow?.user_count) || users.length,
-      channelCount: Number(statsRow?.channel_count) || conversations.length,
+      userCount: Number(statsRaw.user_count) || users.length,
+      channelCount: Number(statsRaw.channel_count) || conversations.length,
       messageCount,
       threadCount: 0,
       hasMessages: messageCount > 0,
@@ -120,7 +113,7 @@ export async function loadChannelMessages(channelId, { aroundTs } = {}) {
 }
 
 /**
- * Full-text search across the archive (server-side, not limited to loaded messages).
+ * Full-text search across the archive (server-side).
  */
 export async function searchMessages(query) {
   const q = query.trim()
