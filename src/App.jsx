@@ -6,6 +6,9 @@ import MessageList from './components/MessageList'
 import ThreadPanel from './components/ThreadPanel'
 import SearchPanel from './components/SearchPanel'
 import LoginPanel from './components/LoginPanel'
+import MobileBottomNav from './components/MobileBottomNav'
+import ChannelsPanel from './components/ChannelsPanel'
+import ProfilePanel from './components/ProfilePanel'
 import { supabase } from './lib/supabase'
 import { loadWorkspaceFromSupabase, loadChannelMessages, searchMessages, CHANNEL_PAGE_SIZE } from './lib/workspaceApi'
 import './index.css'
@@ -262,6 +265,22 @@ export default function App() {
     setAccessDenied('')
   }
 
+  const mobileTab = view === 'channel' ? 'channels' : view
+
+  const onMobileTab = (tab) => {
+    if (tab === 'search') {
+      setView('search')
+      return
+    }
+    if (tab === 'channels') {
+      setView('channels')
+      setActiveThreadTs(null)
+      return
+    }
+    setView(tab)
+    setActiveThreadTs(null)
+  }
+
   if (!authReady) {
     return <div className="boot">Checking session…</div>
   }
@@ -314,7 +333,7 @@ export default function App() {
       />
 
       <main className="main">
-        <div className="top-search-bar">
+        <div className="top-search-bar desktop-only">
           <input
             type="search"
             className="top-search-input"
@@ -335,13 +354,41 @@ export default function App() {
           <HomePanel workspace={workspace} onOpenChannel={openChannel} />
         )}
 
+        {view === 'channels' && (
+          <ChannelsPanel
+            conversations={workspace.conversations}
+            activeId={activeConversationId}
+            onSelectConversation={openChannel}
+          />
+        )}
+
         {view === 'search' && (
-          <SearchPanel
-            results={searchResults}
-            query={globalSearch}
-            userMap={workspace.userMap}
-            onOpenMessage={openSearchResult}
-            loading={searchLoading}
+          <>
+            <div className="mobile-search-bar">
+              <input
+                type="search"
+                className="top-search-input"
+                placeholder="Search all messages…"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <SearchPanel
+              results={searchResults}
+              query={globalSearch}
+              userMap={workspace.userMap}
+              onOpenMessage={openSearchResult}
+              loading={searchLoading}
+            />
+          </>
+        )}
+
+        {view === 'profile' && (
+          <ProfilePanel
+            workspace={workspace}
+            userEmail={session.user.email}
+            onSignOut={signOut}
           />
         )}
 
@@ -385,6 +432,8 @@ export default function App() {
 
         {error && <div className="toast error">{error}</div>}
       </main>
+
+      <MobileBottomNav activeTab={mobileTab} onSelect={onMobileTab} />
     </div>
   )
 }
